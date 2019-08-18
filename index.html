@@ -5,22 +5,21 @@
 		<title>いのししさんユニットによる議事録作成サービス</title>
 			
 		<script language="javascript" type="text/javascript">
-				function OnButtonClick() {
-            				target = document.getElementById("output");
-					target.innerHTML = "Penguin";
+				function startActin() {
+            				document.getElementById('eid_date').innerHTML = Date()
         			}
-    </script>
-		
+				function endActin() {
+            				document.getElementById('eid_date').innerHTML = Date()
+        			}
+    		</script>
+
 	</head>
 	<body>
-	<p>
-		議事録作成サービス
-	</p>
-		<textarea readonly name="giji" rows="20" cols="100">ここに文字を起こす</textarea><br>
-		<input type="button" value="Exec" onclick="OnButtonClick();"/>
-		<button type="button" name="name">開始</button>
-		<button type="button" name="name">終了</button><br>
-
-	
+		<p>
+			議事録作成サービス
+		</p>
+			<textarea readonly name="giji" rows="20" cols="100">ここに文字を起こす</textarea><br>
+			<input type="button" value="開始" onclick="startActin();"/>
+			<input type="button" value="終了" onclick="endActin();"/>	
 	</body>
 </html>
