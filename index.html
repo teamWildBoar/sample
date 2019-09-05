@@ -34,8 +34,11 @@
 
 							var i = 0;
 							var len = data.results.length;
+							var str = "";
+							//FIXME APIレスポンスより話者を取得し設定
 							while (i < len) {
-								$("#response").text(data.results[i++].alternatives[0].transcript);
+								str = $("#response").val() + "（話者A）\n" + data.results[i++].alternatives[0].transcript + '\n';
+								$("#response").val(str);
 							}
 
 						},
@@ -55,7 +58,8 @@
 		<p>
 			議事録作成サービス
 		</p>
-			<textarea readonly name="giji" rows="20" cols="100" id="response" >ここに文字を起こす</textarea><br>
+			<textarea readonly name="giji" rows="20" cols="100" id="response" ></textarea><br>
+
 			<p><button id="startButton" type="button">開始</button></p>
 			<p><button id="endButton" type="button">終了</button></p>
 
