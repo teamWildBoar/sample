@@ -3,24 +3,57 @@
 	<head>
 		<meta charset="UTF-8">
 		<title>いのししさんユニットによる議事録作成サービス</title>
-			
-		<script language="javascript" type="text/javascript">
-				function startActin() {
-            				alert('議事録の作成を開始します。');
-        			}
-				function endActin() {
-            				alert('議事録の作成を終了しました。');
-        			}
-    		</script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+		<script type="text/javascript">
+			$(function(){
+		
+				$("#startButton").click( function(){
+					alert('議事録の作成を開始します。');
+
+					var url = "https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes";
+		
+						var JSONdata = {
+							"audio_data" : "data",
+							"encoding" : "FLAC",
+							"sample_rate_hertz" :"16000",
+							"language_code" : "ja-JP" 
+						};
+				
+					$.ajax({
+						type : 'post',
+						url : url,
+						data : JSON.stringify(JSONdata),
+						contentType: 'application/JSON',
+						dataType : 'JSON',
+						scriptCharset: 'utf-8',
+						success : function(data) {
+		
+							// Success
+							alert("success");
+							alert('議事録の作成を終了しました。');
+							$("#response").html(JSON.stringify(data));
+						},
+						error : function(data) {
+		
+							// Error
+							alert("error");
+							alert(JSON.stringify(data));
+							$("#response").html(JSON.stringify(data));
+						}
+					});
+				})
+			})
+		</script>
 
 	</head>
 	<body>
 		<p>
 			議事録作成サービス
 		</p>
-			<textarea readonly name="giji" rows="20" cols="100">ここに文字を起こす</textarea><br>
-			<input type="button" value="開始" onclick="startActin();"/>
-			<input type="button" value="終了" onclick="endActin();"/>	
+			<textarea readonly name="giji" rows="20" cols="100" id="response" >ここに文字を起こす</textarea><br>
+			<p><button id="startButton" type="button">開始</button></p>
+			<p><button id="endButton" type="button">終了</button></p>
+
 	</body>
 </html>
- 
