@@ -6,10 +6,52 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
 		<script type="text/javascript">
+
 			$(function(){
-		
 				$("#startButton").click( function(){
 					alert('議事録の作成を開始します。');
+								//様々なブラウザでマイクへのアクセス権を取得する
+			navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+
+			//audioのみtrue。Web Audio APIが問題なく使えるのであれば、第二引数で指定した関数を実行する
+			navigator.getUserMedia({
+				audio: true,
+				video: false
+			}, successFunc, errorFunc);
+
+			function successFunc(stream) {
+				var recorder = new MediaRecorder(stream, {
+					mimeType: 'video/webm;codecs=vp9'
+				});
+
+			//音を拾い続けるための配列。chunkは塊という意味
+			var chunks = [];
+
+			//集音のイベントを登録する
+			recorder.addEventListener('dataavailable', function(ele) {
+				if (ele.data.size > 0) {
+					chunks.push(ele.data);
+				}
+			});
+
+			// recorder.stopが実行された時のイベント
+				recorder.addEventListener('stop', function() {
+
+					var dl = document.querySelector("#dl");
+
+				//集音したものから音声データを作成する
+				dl.href = URL.createObjectURL(new Blob(chunks));
+				dl.download = 'sample.wav';
+			});
+
+		recorder.start();
+
+		//10秒後に集音を終了する。
+		setTimeout(function() {
+			alert("stop");
+			recorder.stop();
+		}, 10000);
+	}
 
 					var url = "https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes";
 		
@@ -31,7 +73,6 @@
 		
 							// Success
 							alert('議事録の作成を終了しました。');
-
 							var i = 0;
 							var len = data.results.length;
 							var str = "";
@@ -40,7 +81,6 @@
 								str = $("#response").val() + "（話者A）\n" + data.results[i++].alternatives[0].transcript + '\n';
 								$("#response").val(str);
 							}
-
 						},
 						error : function(data) {
 		
@@ -51,6 +91,10 @@
 					});
 				})
 			})
+		// Web Audio APIが使えなかった時
+		function errorFunc(error) {
+			alert("error");
+		}
 		</script>
 
 	</head>
@@ -62,6 +106,6 @@
 
 			<p><button id="startButton" type="button">開始</button></p>
 			<p><button id="endButton" type="button">終了</button></p>
-
+			<a id="dl">ダウンロード</a>
 	</body>
 </html>
