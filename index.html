@@ -9,24 +9,22 @@
 	<script type="text/javascript">
 
 		$(() => {
+            //様々なブラウザでマイクへのアクセス権を取得する
+			navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
 			$('#startButton').click(() => {
 				alert('議事録の作成を開始します。');
-				//様々なブラウザでマイクへのアクセス権を取得する
-				navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
-
 				// Web Audio APIが使えなかった時
 				var errorFunc = error => {
 					alert("error");
 					console.log(error);
 				};
+                // 音声のbase64データ
+                var postData = '';
 
 				var successFunc = stream => {
 					var recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-
 					//音を拾い続けるための配列。chunkは塊という意味
 					var chunks = [];
-					// 音声のbase64データ
-					var postData;
 					//集音のイベントを登録する
 					recorder.addEventListener('dataavailable', ele => {
 						if (ele.data.size > 0) {
@@ -36,7 +34,6 @@
 
 					// recorder.stopが実行された時のイベント
 					recorder.addEventListener('stop', () => {
-						var dl = document.querySelector("#dl");
 						//集音したものから音声データを作成する
 						var reader = new FileReader();
 						reader.onloadend = () => postData = reader.result;
@@ -50,25 +47,25 @@
 						alert('stop');
 						recorder.stop();
 					}, 10000);
-				}
+				};
 
 				//audioのみtrue。Web Audio APIが問題なく使えるのであれば、第二引数で指定した関数を実行する
 				navigator.getUserMedia({ audio: true, video: false }, successFunc, errorFunc);
 
-				var url = "https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes";
+				var url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
 
 				var JSONdata = {
-					"audio_data": postData,
-					"encoding": "WAV",
-					"sample_rate_hertz": "16000",
-					"language_code": "ja-JP"
+					'audio_data': postData,
+					'encoding': 'wav',
+					'sample_rate_hertz': '16000',
+					'language_code': 'ja-JP'
 				};
 
 				$.ajax({
 					type: 'post',
 					url: url,
 					data: JSON.stringify(JSONdata),
-					contentType: 'application/JSON',
+					contentType: 'application/json',
 					dataType: 'JSON',
 					scriptCharset: 'utf-8',
 					success: data => {
@@ -77,10 +74,10 @@
 						alert('議事録の作成を終了しました。');
 						var i = 0;
 						var len = data.results.length;
-						var str = "";
+						var str = '';
 						//FIXME APIレスポンスより話者を取得し設定
 						while (i < len) {
-							str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n;`
+							str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
 							$('#response').val(str);
 						}
 					},
