@@ -14,6 +14,30 @@
 
         if (!navigator.mediaDevices) console.log('getUserMedia() not supported.');
 
+        /**
+         * API呼び出し
+         * @param {string} audioData 音声のbase64文字列
+         * @return {Promise<Response>} APIレスポンス
+         */
+        const callApi = audioData => {
+            const jsonData = {
+                'audio_data': audioData,
+                'encoding': 'wav',
+                'sample_rate_hertz': '16000',
+                'language_code': 'ja-JP'
+            };
+            const url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(jsonData),
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+        };
+
         $(() => {
             $('#startButton').click(() => {
                 alert('議事録の作成を開始します。');
@@ -22,72 +46,56 @@
                     const recorder = new MediaRecorder(stream);
                     //音を拾い続けるための配列。chunkは塊という意味
                     let chunks = [];
-                    // 音声のbase64データ
-                    let postData = '';
                     //集音のイベントを登録する
-                    recorder.ondataavailable = ele => {
-                        if (ele.data.length > 0) {
-                            chunks.push(ele.data);
-                        }
-                    }
-                    // recorder.stopが実行された時のイベント
-                    recorder.onstop = e => {
+                    recorder.ondataavailable = ele => chunks.push(ele.data);
+                    const stopEvent = e => {
                         //集音したものから音声データを作成する
                         const reader = new FileReader();
-                        reader.onloadend = () => postData = reader.result;
-                        reader.readAsArrayBuffer(new Blob(chunks));
+                        reader.onload = (event) => {
+                            const dataUrl = reader.result;
+                            // 音声のbase64データ
+                            const base64str = btoa(dataUrl);
+                            callApi(base64str).then(res => res.ok ? res.json() : Promise.reject(res.json())).then(json => json.error.code ? Promise.reject(json) : Promise.resolve(json)).then(
+                                data => {
+                                    // Success
+                                    alert('議事録の作成を終了しました。');
+                                    let i = 0;
+                                    const len = data.results.length;
+                                    let str = '';
+                                    //FIXME APIレスポンスより話者を取得し設定
+                                    while (i < len) {
+                                        str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
+                                        $('#response').val(str);
+                                    }
+                                },
+                                error => {
+                                    // Error
+                                    alert('error');
+                                    console.log(`error: ${JSON.stringify(error)}`);
+                                }
+                            );
+                        }
+                        const blob = new Blob(chunks, { 'type': 'audio/ogg; codecs=opus' });
+                        reader.readAsDataURL(blob);
                         chunks = [];
-                    }
+                    };
+                    // recorder.stopが実行された時のイベント
+                    recorder.onstop = stopEvent;
 
                     recorder.start();
+                    console.log(`start state: ${recorder.state}`);
 
                     /**
-                     * @param {Number} ms ミリ秒
-                     * @return {String} 音声のbase64文字列
+                     * @param {number} ms ミリ秒
+                     * @return {Promise<Void>} 音声のbase64文字列
                      */
                     const sleep = ms => new Promise((resolve, reject) => setTimeout(() => {
                         recorder.stop();
+                        console.log(`stop state: ${recorder.state}`);
                         alert('stop');
-                        return resolve(postData);
                     }, ms));
                     return sleep(10000);
-                }).then(postData => {
-                    console.log(`postData: ${postData}`);
-                    const jsonData = {
-                        'audio_data': postData,
-                        'encoding': 'wav',
-                        'sample_rate_hertz': '16000',
-                        'language_code': 'ja-JP'
-                    };
-                    const url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
-                    return fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(jsonData),
-                        mode: 'cors',
-                        cache: 'no-cache'
-                    });
-                }).then(res => res.ok ? res.json() : Promise.reject(res.json())).then(json => json.error.code ? Promise.reject(json) : Promise.resolve(json)).then(
-                    data => {
-                        // Success
-                        alert('議事録の作成を終了しました。');
-                        let i = 0;
-                        const len = data.results.length;
-                        let str = '';
-                        //FIXME APIレスポンスより話者を取得し設定
-                        while (i < len) {
-                            str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
-                            $('#response').val(str);
-                        }
-                    },
-                    error => {
-                        // Error
-                        alert('error');
-                        console.log(`error: ${JSON.stringify(error)}`);
-                    }
-                ).catch(error => console.log(`error: ${error}`));
+                });
             });
         });
     </script>
