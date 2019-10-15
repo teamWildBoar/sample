@@ -7,85 +7,94 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
     <script type="text/javascript">
+        //様々なブラウザでマイクへのアクセス権を取得する
+        navigator.mediaDevices = navigator.mediaDevices || ((navigator.mozGetUserMedia || navigator.webkitGetUserMedia) ? {
+            getUserMedia: c => new Promise((y, n) => { (navigator.mozGetUserMedia || navigator.webkitGetUserMedia).call(navigator, c, y, n); })
+        } : null);
+
+        if (!navigator.mediaDevices) console.log('getUserMedia() not supported.');
+
+        /**
+         * API呼び出し
+         * @param {string} audioData 音声のbase64文字列
+         * @return {Promise<Response>} APIレスポンス
+         */
+        const callApi = audioData => {
+            const jsonData = {
+                'audio_data': audioData,
+                'encoding': 'wav',
+                'sample_rate_hertz': '16000',
+                'language_code': 'ja-JP'
+            };
+            const url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(jsonData),
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+        };
 
         $(() => {
-            //様々なブラウザでマイクへのアクセス権を取得する
-            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
             $('#startButton').click(() => {
                 alert('議事録の作成を開始します。');
-                // Web Audio APIが使えなかった時
-                var errorFunc = error => {
-                    alert("error");
-                    console.log(error);
-                };
-                // 音声のbase64データ
-                var postData = '';
-
-                var successFunc = stream => {
-                    var recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+                //audioのみtrue
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                    const recorder = new MediaRecorder(stream);
                     //音を拾い続けるための配列。chunkは塊という意味
-                    var chunks = [];
+                    let chunks = [];
                     //集音のイベントを登録する
-                    recorder.addEventListener('dataavailable', ele => {
-                        if (ele.data.size > 0) {
-                            chunks.push(ele.data);
-                        }
-                    });
-
-                    // recorder.stopが実行された時のイベント
-                    recorder.addEventListener('stop', () => {
+                    recorder.ondataavailable = ele => chunks.push(ele.data);
+                    const stopEvent = e => {
                         //集音したものから音声データを作成する
-                        var reader = new FileReader();
-                        reader.onloadend = () => postData = reader.result;
-                        reader.readAsArrayBuffer(new Blob(chunks));
-                    });
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            const dataUrl = reader.result;
+                            // 音声のbase64データ
+                            const base64str = btoa(dataUrl);
+                            callApi(base64str).then(res => res.ok ? res.json() : Promise.reject(res.json())).then(json => json.error.code ? Promise.reject(json) : Promise.resolve(json)).then(
+                                data => {
+                                    // Success
+                                    alert('議事録の作成を終了しました。');
+                                    let i = 0;
+                                    const len = data.results.length;
+                                    let str = '';
+                                    //FIXME APIレスポンスより話者を取得し設定
+                                    while (i < len) {
+                                        str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
+                                        $('#response').val(str);
+                                    }
+                                },
+                                error => {
+                                    // Error
+                                    alert('error');
+                                    console.log(`error: ${JSON.stringify(error)}`);
+                                }
+                            );
+                        }
+                        const blob = new Blob(chunks, { 'type': 'audio/ogg; codecs=opus' });
+                        reader.readAsDataURL(blob);
+                        chunks = [];
+                    };
+                    // recorder.stopが実行された時のイベント
+                    recorder.onstop = stopEvent;
 
                     recorder.start();
+                    console.log(`start state: ${recorder.state}`);
 
-                    //10秒後に集音を終了する。
-                    setTimeout(() => {
-                        alert('stop');
+                    /**
+                     * @param {number} ms ミリ秒
+                     * @return {Promise<Void>} 音声のbase64文字列
+                     */
+                    const sleep = ms => new Promise((resolve, reject) => setTimeout(() => {
                         recorder.stop();
-                    }, 10000);
-                };
-
-                //audioのみtrue。Web Audio APIが問題なく使えるのであれば、第二引数で指定した関数を実行する
-                navigator.getUserMedia({ audio: true, video: false }, successFunc, errorFunc);
-
-                var url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
-
-                var JSONdata = {
-                    'audio_data': postData,
-                    'encoding': 'wav',
-                    'sample_rate_hertz': '16000',
-                    'language_code': 'ja-JP'
-                };
-
-                $.ajax({
-                    type: 'post',
-                    url: url,
-                    data: JSON.stringify(JSONdata),
-                    contentType: 'application/json',
-                    dataType: 'JSON',
-                    scriptCharset: 'utf-8',
-                    success: data => {
-
-                        // Success
-                        alert('議事録の作成を終了しました。');
-                        var i = 0;
-                        var len = data.results.length;
-                        var str = '';
-                        //FIXME APIレスポンスより話者を取得し設定
-                        while (i < len) {
-                            str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
-                            $('#response').val(str);
-                        }
-                    },
-                    error: data => {
-                        // Error
-                        alert('error');
-                        alert(JSON.stringify(data));
-                    }
+                        console.log(`stop state: ${recorder.state}`);
+                        alert('stop');
+                    }, ms));
+                    return sleep(10000);
                 });
             });
         });
@@ -101,7 +110,6 @@
 
     <p><button id="startButton" type="button">開始</button></p>
     <p><button id="endButton" type="button">終了</button></p>
-    <a id="dl">ダウンロード</a>
 </body>
 
 </html>
