@@ -18,75 +18,76 @@
             $('#startButton').click(() => {
                 alert('議事録の作成を開始します。');
                 //audioのみtrue
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        const recorder = new MediaRecorder(stream);
-                        //音を拾い続けるための配列。chunkは塊という意味
-                        let chunks = [];
-                        // 音声のbase64データ
-                        let postData = '';
-                        //集音のイベントを登録する
-                        recorder.ondataavailable = ele => {
-                            if (ele.data.length > 0) {
-                                chunks.push(ele.data);
-                            }
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                    const recorder = new MediaRecorder(stream);
+                    //音を拾い続けるための配列。chunkは塊という意味
+                    let chunks = [];
+                    // 音声のbase64データ
+                    let postData = '';
+                    //集音のイベントを登録する
+                    recorder.ondataavailable = ele => {
+                        if (ele.data.length > 0) {
+                            chunks.push(ele.data);
                         }
-                        // recorder.stopが実行された時のイベント
-                        recorder.onstop = e => {
-                            //集音したものから音声データを作成する
-                            const reader = new FileReader();
-                            reader.onloadend = () => postData = reader.result;
-                            reader.readAsArrayBuffer(new Blob(chunks));
-                            chunks = [];
-                        }
+                    }
+                    // recorder.stopが実行された時のイベント
+                    recorder.onstop = e => {
+                        //集音したものから音声データを作成する
+                        const reader = new FileReader();
+                        reader.onloadend = () => postData = reader.result;
+                        reader.readAsArrayBuffer(new Blob(chunks));
+                        chunks = [];
+                    }
 
-                        recorder.start();
+                    recorder.start();
 
-                        /**
-                         * @param {Number} ms ミリ秒
-                         * @return {String} 音声のbase64文字列
-                         */
-                        const sleep = ms => new Promise((resolve, reject) => setTimeout(() => {
-                            recorder.stop();
-                            alert('stop');
-                            return resolve(postData);
-                        }, ms));
-                        return sleep(10000);
-                    }).then(postData => {
-                        console.log(`postData: ${postData}`);
-                        const jsonData = {
-                            'audio_data': postData,
-                            'encoding': 'wav',
-                            'sample_rate_hertz': '16000',
-                            'language_code': 'ja-JP'
-                        };
-                        return $.ajax({
-                            type: 'post',
-                            url: 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes',
-                            data: JSON.stringify(jsonData),
-                            contentType: 'application/json',
-                            dataType: 'json',
-                            scriptCharset: 'utf-8'
-                        });
-                    }).then(
-                        (data, status, xhr) => {
-                            // Success
-                            alert('議事録の作成を終了しました。');
-                            let i = 0;
-                            const len = data.results.length;
-                            let str = '';
-                            //FIXME APIレスポンスより話者を取得し設定
-                            while (i < len) {
-                                str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
-                                $('#response').val(str);
-                            }
+                    /**
+                     * @param {Number} ms ミリ秒
+                     * @return {String} 音声のbase64文字列
+                     */
+                    const sleep = ms => new Promise((resolve, reject) => setTimeout(() => {
+                        recorder.stop();
+                        alert('stop');
+                        return resolve(postData);
+                    }, ms));
+                    return sleep(10000);
+                }).then(postData => {
+                    console.log(`postData: ${postData}`);
+                    const jsonData = {
+                        'audio_data': postData,
+                        'encoding': 'wav',
+                        'sample_rate_hertz': '16000',
+                        'language_code': 'ja-JP'
+                    };
+                    const url = 'https://asia-northeast1-icom-si2.cloudfunctions.net/create_minutes';
+                    return fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
                         },
-                        (xhr, status, error) => {
-                            // Error
-                            alert('error');
-                            alert(JSON.stringify(error));
+                        body: JSON.stringify(jsonData),
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    });
+                }).then(res => res.ok ? res.json() : Promise.reject(res.json())).then(json => json.error.code ? Promise.reject(json) : Promise.resolve(json)).then(
+                    data => {
+                        // Success
+                        alert('議事録の作成を終了しました。');
+                        let i = 0;
+                        const len = data.results.length;
+                        let str = '';
+                        //FIXME APIレスポンスより話者を取得し設定
+                        while (i < len) {
+                            str = `${$('#response').val()}（話者A）\n${data.results[i++].alternatives[0].transcript}\n`
+                            $('#response').val(str);
                         }
-                    ).catch(error => console.log(`error: ${error}`));
+                    },
+                    error => {
+                        // Error
+                        alert('error');
+                        console.log(`error: ${JSON.stringify(error)}`);
+                    }
+                ).catch(error => console.log(`error: ${error}`));
             });
         });
     </script>
