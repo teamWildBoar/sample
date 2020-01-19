@@ -74,4 +74,29 @@ jQuery(document).ready(function( $ ) {
 			];
 			var myDoughnut = new Chart(document.getElementById("photoshop").getContext("2d")).Doughnut(doughnutData);
 		}
+
+	//ボタン押下イベント
+	//スタートボタン
+	document.getElementById("startButton").onclick = function() {
+		
+		var start = document.getElementById("startButton");
+		var stop = document.getElementById("stopButton");
+		var text = document.getElementById("text");
+		
+		start.disabled = true;
+		stop.disabled = false;
+		text.style.visibility ="visible";
+	};
+	
+	//ストップボタン
+	document.getElementById("stopButton").onclick = function() {
+		
+		var start = document.getElementById("startButton");
+		var stop = document.getElementById("stopButton");
+		
+		start.disabled = false;
+		stop.disabled = true;
+		text.style.visibility ="hidden";
+	};
+
 });
