@@ -95,11 +95,11 @@
               <div class="form-group ">
                 <textarea readonly="" id="messageId" rows="10" cols="60"></textarea>
             <!-- <text name="messageName" id="messageId" cols="30" rows="5" class="form-control" placeholder="議事録"></text>-->
-            <div class="form-group ">
-            <button id="startButton">作成開始</button>
-            <button id="stopButton">作成終了</button>
             <!--<a class="btn btn-primary btn-lg" id="download">ファイルダウンロード</a>-->
           </div>
+            <input type="button" id="startButton" value="作成開始">
+            <input type="button" id="stopButton" value="作成終了" disabled>
+            <p span style="visibility:hidden;" id="text">録音中です。停止するには「作成終了」ボタンを押してください</span></p>
           </div>
         </div>
         </div>
