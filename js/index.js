@@ -1,20 +1,14 @@
 const stopButton = document.getElementById('stopButton');
 const startButton = document.getElementById('startButton');
 
-// for audio
-let audio_sample_rate = null;
-let scriptProcessor = null;
-let audioContext = null;
-
 // audio data
-let audioData = [];
 let bufferSize = 1024;
 
 /**
  * API呼び出し
  * @param {String} base64str 音声のbase64文字列
  */
-const callApi = async base64str => {
+const callApi = (base64str, audio_sample_rate) => {
     const jsonData = {
         'audio_data': base64str,
         'encoding': 'LINEAR16',
@@ -52,13 +46,15 @@ const callApi = async base64str => {
     );
 };
 
-let saveAudio = () => {
-    exportWAV(audioData);
-    audioContext.close();
+let saveAudio = (audioContext, audioData, audio_sample_rate) => {
+    exportWAV(audioData, audio_sample_rate);
+    audioContext.close().then(() => {
+        audioData = [];
+    });
 }
 
 // export WAV from audio float data
-let exportWAV = audioData => {
+let exportWAV = (audioData, audio_sample_rate) => {
 
     let encodeWAV = (samples, sampleRate) => {
         let buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -118,7 +114,7 @@ let exportWAV = audioData => {
     reader.onload = e => {
         const dataUrl = reader.result;
         const base64str = dataUrl.substr(dataUrl.indexOf(',') + 1);
-        callApi(base64str);
+        callApi(base64str, audio_sample_rate);
     };
     reader.readAsDataURL(audioBlob);
 
@@ -128,31 +124,32 @@ let exportWAV = audioData => {
 };
 
 // save audio data
-var onAudioProcess = e => {
-    var input = e.inputBuffer.getChannelData(0);
-    var bufferData = new Float32Array(bufferSize);
-    for (var i = 0; i < bufferSize; i++) {
-        bufferData[i] = input[i];
-    }
-
-    audioData.push(bufferData);
-};
 
 // getusermedia
-let handleSuccess = stream => {
-    audioContext = new AudioContext();
-    audio_sample_rate = audioContext.sampleRate;
+const handleSuccess = stream => {
+    const audioContext = new AudioContext();
+    const audio_sample_rate = audioContext.sampleRate;
     console.log(audio_sample_rate);
-    scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
-    var mediastreamsource = audioContext.createMediaStreamSource(stream);
+    let audioData = [];
+    const scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    const mediastreamsource = audioContext.createMediaStreamSource(stream);
     mediastreamsource.connect(scriptProcessor);
+    const onAudioProcess = e => {
+        var input = e.inputBuffer.getChannelData(0);
+        var bufferData = new Float32Array(bufferSize);
+        for (var i = 0; i < bufferSize; i++) {
+            bufferData[i] = input[i];
+        }
+
+        audioData.push(bufferData);
+    };
     scriptProcessor.onaudioprocess = onAudioProcess;
     scriptProcessor.connect(audioContext.destination);
 
     // when time passed without pushing the stop button
     setTimeout(() => {
         console.log("10 sec");
-        saveAudio();
+        saveAudio(audioContext, audioData, audio_sample_rate);
     }, 10000);
 };
 
@@ -160,14 +157,14 @@ let interval_num;
 
 const handler = () => {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-    .then(handleSuccess);
+        .then(handleSuccess);
 }
 
 startButton.addEventListener('click', () => {
     handler();
     // getUserMedia
     interval_num = setInterval(handler, 10000);
-    
+
 })
 
 // stop button
